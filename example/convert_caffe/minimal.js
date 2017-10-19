@@ -17,11 +17,14 @@ async function run() {
     x.set(loadImageData());
 
     // (2.2) Run DNN model
+    let start = Date.now();
     await runner.run();
 
     // (2.3) Show computed vector and predicted label.
     console.log('Computed vector', y);
     console.log('Predicted Label', WebDNN.Math.argmax(y));
+    let elapsed = Date.now() - start;
+    console.log('Elapsed time: ' + elapsed + ' ms');
 }
 
 const SIZE = 227;
