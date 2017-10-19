@@ -45,6 +45,15 @@ The benchmark for computing speed of DNN model on web browser
     - Convert pretrained models into Keras.js format
     - Convert pretrained models into WebDNN format
 
+2. download ReNet50 caffe models
+Open https://onedrive.live.com/?authkey=%21AAFW2-FVoxeVRck&id=4006CBB8476FF777%2117887&cid=4006CBB8476FF777
+
+Download `ResNet-50-model.caffemodel`
+
+```shell
+$ wget https://raw.githubusercontent.com/KaimingHe/deep-residual-networks/master/prototxt/ResNet-50-deploy.prototxt
+```
+
 2. open `index.html` on your browser
 
 ## LICENSE

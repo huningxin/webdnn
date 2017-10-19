@@ -170,6 +170,80 @@ class KerasJSBenchmark extends Benchmark {
         });
     }
 }
+
+function createFileFromUrl(path, url, callback) {
+    let request = new XMLHttpRequest();
+    request.open('GET', url, true);
+    request.responseType = 'arraybuffer';
+    request.onload = function(ev) {
+        if (request.readyState === 4) {
+            if (request.status === 200) {
+                let data = new Uint8Array(request.response);
+                try {
+                    cv.FS_createDataFile('/', path, data, true, true, true);
+                } catch (e) {
+                    if (e.errno != 17) {
+                        throw Error(e);
+                    }
+                } finally {
+                    callback();
+                }
+            } else {
+                console.log('Failed to load ' + url + ' status: ' + request.status);
+            }
+        }
+    };
+    request.send();
+};
+class OpenCVJSBenchmark extends Benchmark {
+    constructor() {
+        super(...arguments);
+        this.model = null;
+    }
+    setupAsync() {
+        let self = this;
+        return new Promise(function(resolve, reject) {
+            if (self.configuration.batchSize !== 1) {
+                reject(new Error('opencv.js benchmark supports only batchsize=1.'));
+            }
+            self.modelTxt = 'ResNet-50-deploy.prototxt';
+            createFileFromUrl(self.modelTxt, self.modelTxt, () => {
+                self.modelBin = 'ResNet-50-model.caffemodel';
+                createFileFromUrl(self.modelBin, self.modelBin, () => {
+                    let img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = function() {
+                        let src = cv.imread(img);
+                        self.model = cv.readNetFromCaffe('ResNet-50-deploy.prototxt', 'ResNet-50-model.caffemodel');
+                        if (self.model.empty()) {
+                            reject(new Error('Failed to read net'));
+                        }
+                        const S = InputSize[self.configuration.modelName];
+                        self.inputBlob = cv.blobFromImage(src, 1, new cv.Size(S, S), new cv.Scalar(104, 117, 123));
+                        src.delete();
+                        self.model.setInput(self.inputBlob, "data");
+                        console.log('opencv.js benchmark setup ready');
+                        resolve();
+                    };
+                    img.src = 'space_shuttle.jpg';
+                });
+            });
+        });
+    }
+    executeSingleAsync() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.model.forward("prob");
+        });
+    }
+    finalizeAsync() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.model.delete();
+            this.model = null;
+            this.inputBlob.delete();
+            this.inputBlob = null;
+        });
+    }
+}
 class DeepLearnJSBenchmark extends Benchmark {
     constructor() {
         super(...arguments);
@@ -300,7 +374,8 @@ class DeepLearnJSBenchmark extends Benchmark {
 const BenchmarkClass = {
     'WebDNN': WebDNNBenchmark,
     'keras.js': KerasJSBenchmark,
-    'deeplearn.js': DeepLearnJSBenchmark
+    'deeplearn.js': DeepLearnJSBenchmark,
+    'opencv.js': OpenCVJSBenchmark
 };
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -415,8 +490,15 @@ document.addEventListener('DOMContentLoaded', () => {
             iteration: 0,
             gpu: true
         }];
+    let opencvjsConfigurations = [{
+        framework: 'opencv.js',
+        name: 'opencv.js (WebAssembly)',
+        modelName: 'resnet50',
+        batchSize: 0,
+        iteration: 0,
+    }];
     let configurations = [];
-    configurations = configurations.concat(webdnnConfigurations, kerasjsConfigurations, deeplearnjsConfigurations);
+    configurations = configurations.concat(webdnnConfigurations, kerasjsConfigurations, deeplearnjsConfigurations, opencvjsConfigurations);
     for (let configuration of configurations) {
         let option = document.createElement('option');
         option.value = JSON.stringify(configuration);
